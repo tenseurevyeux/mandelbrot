@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 image = "0.25.9"
 num = "0.4.3"
+rayon = "1.11.0"
