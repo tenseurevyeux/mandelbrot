@@ -12,5 +12,9 @@ cd mandelbrot && cargo build --release
 ```bash
 ./target/release/mandelbrot --help
 ```
+
 ##### Example
 ![Screenshot](./assets/mandelbrot_full.png)
+
+##### Additional
+The history of test results can be found in the [file test-info/history.md](./test-info/history.md).
