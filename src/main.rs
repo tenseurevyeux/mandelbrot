@@ -1,3 +1,4 @@
+use clap::{Parser, Subcommand};
 use image::GrayImage;
 use num::Complex;
 use rayon::{
@@ -6,8 +7,81 @@ use rayon::{
 };
 use std::error::Error;
 
+/// Parallel CPU-based Mandelbrot set generator (rayon crate).
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// Number of iterations to check whether a point belongs to a set
+    #[arg(short, long, default_value_t = 1000)]
+    iters: usize,
+
+    /// Width of result picture
+    #[arg(short, long, default_value_t = 3840)]
+    width: usize,
+
+    /// Height of result picture
+    #[arg(short, long, default_value_t = 2160)]
+    height: usize,
+
+    /// Minimum value of the X-axis for consideration on the complex plane
+    #[arg(long, default_value_t = -2.0)]
+    x_min: f64,
+
+    /// Maximum value of the X-axis for consideration on the complex plane
+    #[arg(long, default_value_t = 1.0)]
+    x_max: f64,
+
+    /// Minimum value of the Y-axis for consideration on the complex plane
+    #[arg(long, default_value_t = -0.84375)]
+    y_min: f64,
+
+    /// Maximum value of the Y-axis for consideration on the complex plane}
+    #[arg(long, default_value_t = 0.84375)]
+    y_max: f64,
+
+    #[command(subcommand)]
+    location: Option<Location>,
+}
+#[derive(Subcommand, Debug)]
+enum Location {
+    /// Seahorse Valley (double spirals)
+    Seahorse,
+    /// Deep spiral zoom
+    DeepSpiral,
+    /// Elephant Valley
+    Elephant,
+}
+
+impl Location {
+    fn coords(&self, aspect: f64) -> (f64, f64, f64, f64) {
+        match self {
+            Location::Seahorse => {
+                let (x_min, x_max) = (-0.7856455, -0.7340665);
+                let dx = x_max - x_min;
+                let cy = 0.12554725;
+                let dy = dx / aspect;
+                (x_min, x_max, cy - dy / 2.0, cy + dy / 2.0)
+            }
+            Location::DeepSpiral => {
+                let (x_min, x_max) = (-0.745538, -0.743538);
+                let dx = x_max - x_min;
+                let cy = 0.121200;
+                let dy = dx / aspect;
+                (x_min, x_max, cy - dy / 2.0, cy + dy / 2.0)
+            }
+            Location::Elephant => {
+                let (x_min, x_max) = (0.275, 0.28);
+                let dx = x_max - x_min;
+                let cy = 0.007;
+                let dy = dx / aspect;
+                (x_min, x_max, cy - dy / 2.0, cy + dy / 2.0)
+            }
+        }
+    }
+}
+
 fn calc_mandelbrot(
-    max_iters: usize,
+    iters: usize,
     x_min: f64,
     x_max: f64,
     y_min: f64,
@@ -21,7 +95,7 @@ fn calc_mandelbrot(
         let cy = y_min + (y_max - y_min) * (y as f64 / height as f64);
         for (x, pixel) in row.iter_mut().enumerate() {
             let cx = x_min + (x_max - x_min) * x as f64 / width as f64;
-            *pixel = mandelbrot_at_point(cx, cy, max_iters);
+            *pixel = mandelbrot_at_point(cx, cy, iters);
         }
     });
 
@@ -46,15 +120,15 @@ fn draw_mandelbrot(
     escaped: Vec<usize>,
     width: u32,
     height: u32,
-    max_iters: usize,
+    iters: usize,
 ) -> Result<(), Box<dyn Error>> {
     let raw_img: Vec<u8> = escaped
         .iter()
         .map(|&x| {
-            if x == max_iters {
+            if x == iters {
                 255u8
             } else {
-                ((x as f32 / max_iters as f32) * 255.0) as u8
+                ((x as f32 / iters as f32) * 255.0) as u8
             }
         })
         .collect::<Vec<u8>>();
@@ -75,9 +149,27 @@ fn draw_mandelbrot(
 }
 
 fn main() {
-    let escaped = calc_mandelbrot(1000, -2.0, 1.0, -0.84375, 0.84375, 3840, 2160);
+    let args = Args::parse();
 
-    let _ = match draw_mandelbrot(escaped, 3840, 2160, 1000) {
+    let aspect = args.width as f64 / args.height as f64;
+
+    let (x_min, x_max, y_min, y_max) = if let Some(loc) = args.location {
+        loc.coords(aspect)
+    } else {
+        (args.x_min, args.x_max, args.y_min, args.y_max)
+    };
+
+    let escaped = calc_mandelbrot(
+        args.iters,
+        x_min,
+        x_max,
+        y_min,
+        y_max,
+        args.width,
+        args.height,
+    );
+
+    let _ = match draw_mandelbrot(escaped, args.width as u32, args.height as u32, args.iters) {
         Ok(_) => println!("Successed save image as \"image.png\""),
         Err(e) => println!("Handled error: {}", e),
     };
