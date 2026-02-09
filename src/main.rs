@@ -95,11 +95,13 @@ fn calc_mandelbrot(
     y_max: f64,
     width: usize,
     height: usize,
-) -> Vec<u64> {
-    let mut buf: Vec<u64> = vec![0; width * height];
+) -> Vec<u8> {
+    let mut buf: Vec<u8> = vec![0; width * height];
 
     let dx = (x_max - x_min) / width as f64;
     let dy = (y_max - y_min) / height as f64;
+
+    let inv_iter = 255.0 / (iters as f32);
 
     buf.par_chunks_mut(width).enumerate().for_each(|(y, row)| {
         let cy_val = y_min + (y as f64) * dy;
@@ -120,18 +122,29 @@ fn calc_mandelbrot(
                 imag: cy4,
             };
             let results = mandelbrot_at_vec(&c, iters);
+            let arr: [u64; 4] = results.into();
 
-            chunk[0] = results[0];
-            chunk[1] = results[1];
-            chunk[2] = results[2];
-            chunk[3] = results[3];
+            for i in 0..4 {
+                let iter_count = arr[i];
+                if iter_count == iters as u64 {
+                    chunk[i] = 255;
+                } else {
+                    chunk[i] = ((iter_count as f32) * inv_iter) as u8;
+                }
+            }
 
             x += 4;
         }
 
         for pixel in chunks.into_remainder() {
             let cx = x_min + (x as f64) * dx;
-            *pixel = mandelbrot_at_point(cx, cy_val, iters);
+            let count = mandelbrot_at_point(cx, cy_val, iters);
+
+            if count == iters as u64 {
+                *pixel = 255;
+            } else {
+                *pixel = ((count as f32) * inv_iter) as u8;
+            }
             x += 1;
         }
     });
@@ -183,24 +196,8 @@ fn mandelbrot_at_point(cx: f64, cy: f64, iters: usize) -> u64 {
     iters as u64
 }
 
-fn draw_mandelbrot(
-    escaped: Vec<u64>,
-    width: u32,
-    height: u32,
-    iters: usize,
-) -> Result<(), Box<dyn Error>> {
-    let raw_img: Vec<u8> = escaped
-        .iter()
-        .map(|&x| {
-            if x == iters as u64 {
-                255u8
-            } else {
-                ((x as f32 / iters as f32) * 255.0) as u8
-            }
-        })
-        .collect::<Vec<u8>>();
-
-    let img = match GrayImage::from_raw(width, height, raw_img) {
+fn draw_mandelbrot(escaped: Vec<u8>, width: u32, height: u32) -> Result<(), Box<dyn Error>> {
+    let img = match GrayImage::from_raw(width, height, escaped) {
         Some(im) => im,
         None => {
             return Err(Box::new(std::io::Error::new(
@@ -236,7 +233,7 @@ fn main() {
         args.height,
     );
 
-    let _ = match draw_mandelbrot(escaped, args.width as u32, args.height as u32, args.iters) {
+    let _ = match draw_mandelbrot(escaped, args.width as u32, args.height as u32) {
         Ok(_) => println!("Successed save image as \"image.png\""),
         Err(e) => println!("Handled error: {}", e),
     };
