@@ -8,3 +8,4 @@ clap = { version = "4.5.57", features = ["derive"] }
 image = "0.25.9"
 num = "0.4.3"
 rayon = "1.11.0"
+wide = "1.1.1"
