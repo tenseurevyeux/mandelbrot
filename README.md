@@ -1,9 +1,12 @@
 ## Mandelbrot Rust program
 ----
 ##### Usage
-- Install
-git clone https://github.com/tenseurevyeux/mandelbrot.git
-- Build(rustc && cargo require)
-cd mandelbrot && cargo build --release
-- Use
-./target/release/mandelbrot --help
+- Install<br>
+git clone https://github.com/tenseurevyeux/mandelbrot.git<br>
+- Build(rustc && cargo require)<br>
+cd mandelbrot && cargo build --release<br>
+- Use<br>
+./target/release/mandelbrot --help<br>
+
+##### Example
+![Screenshot](./assets/mandelbrot_full.png)
